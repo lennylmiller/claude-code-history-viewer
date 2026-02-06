@@ -2,19 +2,36 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-If the user's prompt starts with “EP:”, then the user wants to enhance the prompt. Read the PROMPT_ENHANCER.md file and follow the guidelines to enhance the user's prompt. Show the user the enhancement and get their permission to run it before taking action on the enhanced prompt.
+## Prompt Enhancement
 
-The enhanced prompts will follow the language of the original prompt (e.g., Korean prompt input will output Korean prompt enhancements, English prompt input will output English prompt enhancements, etc.)
+**EP: Prefix**: If the user's prompt starts with "EP:", they want prompt enhancement.
 
-## Principal
+Process:
+1. Read `PROMPT_ENHANCER.md` for enhancement guidelines
+2. Analyze the user's intent and add missing context from the codebase
+3. Generate an enhanced, detailed prompt with:
+   - Clear objectives and scope
+   - Step-by-step execution plan
+   - Quality criteria and validation methods
+   - References to existing code patterns
+4. **IMPORTANT**: Show the enhancement to the user and get their permission before executing
+5. Match the output language to the input language (Korean → Korean, English → English, etc.)
 
-First, You must use command "gemini -p {prompt}" and then use the result that returned response
-Use pnpm Package Manager
+Example:
+```
+User: "EP: 검색 기능 추가"
+Claude: [Analyzes codebase, reads PROMPT_ENHANCER.md, generates detailed Korean enhancement]
+         "다음과 같이 프롬프트를 개선했습니다: [enhanced prompt]. 이대로 진행해도 될까요?"
+```
 
-가독성이 높은 설계 추구
-예측 가능성이 높은 설계 추구
-높은 응집도 설계 추구
-낮은 결합도 설계 추구
+## Development Principles
+
+**Package Manager**: Always use pnpm (not npm or yarn)
+
+**Design Principles**:
+- High readability and predictability
+- High cohesion, low coupling
+- Follow existing patterns in the codebase
 
 ## Project Overview
 
@@ -22,30 +39,51 @@ Claude Code History Viewer is a Tauri-based desktop application that allows user
 
 ## Development Commands
 
-This project uses `just` (a command runner). Install with `brew install just` or `cargo install just`.
-
-### Recommended (using just)
-
+This project uses `just` as a command runner for convenience. Install with:
 ```bash
-just setup          # Install dependencies and configure build environment
-just dev            # Run full Tauri app in development mode (hot reload)
-just lint           # Run ESLint
-just tauri-build    # Build production app (macOS universal binary, Linux native)
-just test           # Run vitest in watch mode
-just test-run       # Run tests once with verbose output
-just sync-version   # Sync version from package.json to Cargo.toml and tauri.conf.json
+brew install just       # macOS/Linux
+cargo install just      # Cross-platform via Cargo
 ```
 
-### Alternative (using pnpm directly)
-
+**Quick Reference**:
 ```bash
-pnpm install                                    # Install dependencies
-pnpm exec tauri dev                             # Development mode
-pnpm exec tauri build --target universal-apple-darwin  # macOS build
-pnpm exec tauri build                           # Linux/Windows build
-pnpm dev                                        # Start Vite dev server only
-pnpm build                                      # Build frontend with TypeScript checking
-pnpm lint                                       # Run ESLint
+just                # List all available commands
+just setup          # One-time setup: install tools and dependencies
+just dev            # Start development server (hot reload)
+just lint           # Run ESLint on frontend
+just test           # Run Vitest tests (watch mode)
+just test-run       # Run tests once with verbose output
+just tauri-build    # Build production app (platform-specific)
+just sync-version   # Sync version across package.json, Cargo.toml, tauri.conf.json
+```
+
+**Rust-specific commands**:
+```bash
+just rust-test          # Run Rust tests (single-threaded, required)
+just rust-nextest       # Run Rust tests with nextest (faster)
+just rust-lint          # Run clippy lints
+just rust-fmt-check     # Check Rust code formatting
+just rust-check-all     # Run all checks (format + lint + test)
+just rust-coverage      # Generate test coverage report
+just rust-bench         # Run benchmarks
+just rust-watch         # Auto-run tests on file changes
+```
+
+**Alternative (using pnpm/cargo directly)**:
+
+If you don't want to use `just`, you can run commands directly:
+```bash
+pnpm install                    # Install dependencies
+pnpm exec tauri dev             # Development mode
+pnpm exec tauri build           # Build (uses platform-specific target automatically)
+pnpm lint                       # ESLint
+pnpm test                       # Vitest tests
+pnpm build                      # Build frontend with TypeScript checking
+
+# Rust commands (from project root)
+cd src-tauri && cargo test -- --test-threads=1  # Rust tests (must be single-threaded)
+cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings
+cd src-tauri && cargo fmt --all -- --check
 ```
 
 ## Version Management
@@ -178,10 +216,63 @@ gh release edit v1.3.1 --notes-file /path/to/notes.md
 
 ### Auto-Update System
 
-- **업데이트 체크**: `src-tauri/src/commands/update.rs`
-- **프론트엔드 훅**: `src/hooks/useGitHubUpdater.ts`, `src/hooks/useSmartUpdater.ts`
-- **Tauri 설정**: `src-tauri/tauri.conf.json` (updater plugin)
-- **CI/CD**: `.github/workflows/updater-release.yml`
+The app includes a built-in updater that checks GitHub releases for new versions.
+
+**Components**:
+- **Backend**: `src-tauri/src/commands/update.rs` - Update check logic
+- **Frontend hooks**:
+  - `src/hooks/useGitHubUpdater.ts` - GitHub API integration
+  - `src/hooks/useSmartUpdater.ts` - Smart update logic (skip/postpone)
+- **Config**: `src-tauri/tauri.conf.json` (updater plugin)
+- **CI/CD**: `.github/workflows/updater-release.yml` - Auto-generates `latest.json` with signatures
+
+**How it works**:
+1. User pushes a version tag (e.g., `v1.3.1`)
+2. GitHub Actions builds all platform binaries
+3. Generates `latest.json` with download URLs and signatures
+4. App checks `latest.json` on startup and periodically
+5. User can install updates with one click
+
+## CI/CD and Workflows
+
+### GitHub Actions Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `updater-release.yml` | Tag push (`v*`) | Build multi-platform binaries, generate `latest.json`, create GitHub Release |
+| `rust-tests.yml` | Push, PR | Run Rust tests on multiple platforms |
+| `pages.yml` | Push to main | Deploy documentation to GitHub Pages |
+
+### Pre-commit Hooks
+
+This project uses `husky` and `lint-staged` for pre-commit quality checks:
+
+```json
+// package.json
+"lint-staged": {
+  "src/**/*.{ts,tsx}": ["eslint"],
+  "src-tauri/src/**/*.rs": "cargo fmt --check && cargo clippy -- -D warnings"
+}
+```
+
+**Setup**: Hooks are installed automatically via `pnpm install` (runs `pnpm prepare` which calls `husky`)
+
+### Manual Quality Checks
+
+Before any release or major PR, run the full quality gate:
+```bash
+# Frontend
+pnpm install
+pnpm tsc --build .
+pnpm vitest run --reporter=verbose
+pnpm lint
+
+# Backend
+just rust-check-all  # Or: cd src-tauri && cargo fmt --check && cargo clippy -- -D warnings && cargo test -- --test-threads=1
+
+# i18n
+pnpm run i18n:validate
+```
 
 ## Architecture
 
@@ -193,24 +284,57 @@ gh release edit v1.3.1 --notes-file /path/to/notes.md
 
 ### Frontend (React + TypeScript)
 
-- **State Management**: Uses Zustand store in `src/store/useAppStore.ts`
-- **Components**: Located in `src/components/`
-  - `MessageViewer.tsx` - Displays messages with virtual scrolling for performance
-  - `ProjectTree.tsx` - Shows project/session hierarchy
-  - `contentRenderer.tsx` - Handles rendering of different content types
-  - `messageRenderer.tsx` - Renders tool use, tool results, and message content
-- **API Integration**: Frontend communicates with Rust backend via Tauri's IPC commands
-- **Virtual Scrolling**: Uses react-window for efficient rendering of large message lists
+**State Management**: Uses Zustand with a slice pattern (`src/store/useAppStore.ts`)
+- Each slice manages a specific domain (projects, messages, search, analytics, settings, etc.)
+- Slices are combined into a single store for centralized state management
+- Key slices: `projectSlice`, `messageSlice`, `searchSlice`, `analyticsSlice`, `settingsSlice`, `metadataSlice`, `boardSlice`, `filterSlice`, `navigationSlice`
+
+**Component Architecture**:
+- Located in `src/components/`
+- Key components:
+  - `MessageViewer/` - Virtual scrolling message display (uses @tanstack/react-virtual)
+  - `ProjectTree.tsx` - Project/session hierarchy with worktree grouping
+  - `AnalyticsDashboard/` - Token stats and analytics views
+  - `SessionBoard/` - Multi-session visual analysis with attribute brushing
+  - `MessageNavigator/` - Collapsible TOC for conversation navigation
+  - Content renderers in `renderers/` for different content types
+
+**API Integration**:
+- Frontend uses `@tauri-apps/api/core` to invoke backend commands
+- All commands return `Result<T, String>` from Rust
+- Commands are async and must be awaited
+
+**Virtual Scrolling**:
+- Uses `@tanstack/react-virtual` (replaced react-window)
+- Dynamic height calculation with caching
+- Supports messages with variable content sizes
 
 ### Backend (Rust + Tauri)
 
-- **Main Commands** (in `src-tauri/src/lib.rs`):
-  - `get_claude_folder_path` - Locates user's `.claude` directory
-  - `scan_projects` - Scans for all Claude projects
-  - `load_project_sessions` - Loads sessions for a specific project
-  - `load_session_messages` - Loads messages from a JSONL file
-  - `search_messages` - Searches across all messages
-- **Data Structure**: Reads JSONL files containing conversation history from `~/.claude/projects/`
+**Command Organization** (in `src-tauri/src/commands/`):
+- `project.rs` - Project scanning and Git log operations
+- `session/` - Session loading, message pagination, search, rename, edits
+- `stats.rs` - Token statistics and analytics calculations
+- `metadata.rs` - User metadata (hidden projects, custom session names)
+- `settings.rs` - Settings preset management
+- `claude_settings.rs` - Claude Code settings editor (MCP servers, keybindings)
+- `unified_presets.rs` - Combined settings/MCP presets
+- `watcher.rs` - File system watching for real-time updates
+- `feedback.rs` - Bug reporting and system info collection
+- `fs_utils.rs` - Filesystem utilities
+
+**Key Backend Patterns**:
+- Commands use `#[tauri::command]` macro
+- All paths must be absolute (not relative)
+- Errors return `Result<T, String>` (convert with `.map_err(|e| e.to_string())`
+- File operations should be atomic (temp file + rename pattern for writes)
+- Cross-platform path handling: use `std::path::PathBuf` and avoid hardcoded separators
+
+**Data Models** (in `src-tauri/src/models/`):
+- `message.rs` - Message structures matching JSONL format
+- `session.rs` - Session metadata and display info
+- `stats.rs` - Statistics aggregation structures
+- `edit.rs` - File edit tracking for Recent Edits feature
 
 ## i18n Structure (Internationalization)
 
@@ -409,21 +533,99 @@ Assistant messages contain additional metadata within the `message` object:
 - The app expects Claude conversation data in `~/.claude/projects/[project-name]/*.jsonl`
 - Each JSONL file represents a session with one JSON message per line
 - Messages can contain tool use results and error information
-- The UI is primarily in Korean.션, etc.)
+- The UI supports 5 languages: English, Korean, Japanese, Chinese (Simplified), Chinese (Traditional)
 - Virtual scrolling is implemented for performance with large message lists
 - Pagination is used to load messages in batches (100 messages per page)
 - Message tree structure is flattened for virtual scrolling while preserving parent-child relationships
-- No test suite currently exists
+- Frontend tests use Vitest, backend tests use Rust's built-in test framework
 
-## Important Patterns
+## Common Patterns & Best Practices
 
-- Tauri commands are async and return `Result<T, String>`
-- Frontend uses `@tauri-apps/api/core` for invoking backend commands
-- All file paths must be absolute when passed to Rust commands
-- The app uses Tailwind CSS with custom Claude brand colors defined in `tailwind.config.js`
-- Message components are memoized for performance
-- AutoSizer is used for responsive virtual scrolling
-- Message height is dynamically calculated and cached for variable height scrolling
+### Tauri IPC Communication
+
+```typescript
+// Frontend: Invoking Rust commands
+import { invoke } from '@tauri-apps/api/core';
+
+const result = await invoke<ReturnType>('command_name', {
+  param1: value1,
+  param2: value2
+});
+```
+
+```rust
+// Backend: Command definition
+#[tauri::command]
+async fn command_name(param1: Type1, param2: Type2) -> Result<ReturnType, String> {
+    // Implementation
+    Ok(result)
+}
+```
+
+### Path Handling
+
+- **CRITICAL**: Always use absolute paths when passing to Rust commands
+- Use `std::path::PathBuf` for cross-platform compatibility
+- Never hardcode path separators (`/` or `\`)
+- For path splitting that works on both Windows and Unix, use `split(/[\\/]/)`
+
+```rust
+// Good: Cross-platform path handling
+use std::path::PathBuf;
+let path = PathBuf::from(path_string);
+let parent = path.parent();
+
+// Bad: Hardcoded separators
+let parts: Vec<&str> = path.split('/').collect();  // Fails on Windows
+```
+
+### File Operations
+
+- **Atomic writes**: Use temp file + rename pattern to prevent corruption
+```rust
+// Good pattern
+let temp_path = format!("{}.tmp", target_path);
+std::fs::write(&temp_path, content)?;
+std::fs::rename(&temp_path, target_path)?;  // Atomic on Unix, needs remove_file first on Windows
+```
+
+- **Windows compatibility**: `fs::rename` fails if target exists on Windows
+```rust
+#[cfg(target_os = "windows")]
+if target_path.exists() {
+    std::fs::remove_file(&target_path)?;
+}
+std::fs::rename(&temp_path, target_path)?;
+```
+
+### React Performance Patterns
+
+- **Memoization**: Message components are memoized to prevent unnecessary re-renders
+```typescript
+const MemoizedComponent = React.memo(Component);
+```
+
+- **Virtual scrolling**: Uses `@tanstack/react-virtual` with dynamic height calculation
+- **State updates**: Never read state immediately after `setState` (state updates are async)
+```typescript
+// Bad
+setCount(count + 1);
+console.log(count);  // Still shows old value
+
+// Good: Use functional update
+setCount(prev => prev + 1);
+
+// Or use the value directly
+const newCount = count + 1;
+setCount(newCount);
+console.log(newCount);
+```
+
+### Styling
+
+- Uses Tailwind CSS v4 with custom Claude brand colors
+- Dark mode support via CSS variables
+- Component library: Radix UI primitives + shadcn/ui patterns
 
 ## Claude Directory Structure Analysis
 
@@ -759,20 +961,88 @@ Message-level Metadata (2025):
   - Added proper TypeScript types for virtual scrolling components
   - Updated messageAdapter to use type-only imports
 
-### Dependencies Added
+## Testing
 
-- `react-window` - Virtual scrolling for performance
-- `react-window-infinite-loader` - Infinite scroll support
-- `react-virtualized-auto-sizer` - Responsive height calculation
-- `@types/react-window` - TypeScript definitions
-- `@types/react-window-infinite-loader` - TypeScript definitions
+### Frontend Tests
 
-### Known Issues
+```bash
+pnpm test           # Run in watch mode
+pnpm test-run       # Run once with verbose output
+just test           # Same as pnpm test (using just)
+just test-run       # Same as pnpm test-run (using just)
+```
 
-- The frontend expects content at the root level, but it's actually nested under `message.content`
-- Thinking content appears both as a separate type and as tags within text
-- Image support is defined in the data structure but not implemented in the UI
-- ESLint configuration uses deprecated .eslintignore (migrated to ignores in config)
+### Backend (Rust) Tests
+
+**CRITICAL**: Rust tests must run with `--test-threads=1` because some tests use `env::set_var("HOME")`, which is process-global.
+
+```bash
+# Recommended commands
+just rust-test              # Run tests with cargo test (single-threaded)
+just rust-nextest           # Run tests with nextest (faster, parallel-safe)
+just rust-lint              # Run clippy lints
+just rust-fmt-check         # Check code formatting
+just rust-check-all         # Run all checks (format, lint, test)
+
+# Manual commands
+cd src-tauri && cargo test -- --test-threads=1    # Required for cargo test
+cd src-tauri && cargo nextest run                 # Nextest handles parallelism better
+cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings
+cd src-tauri && cargo fmt --all -- --check
+```
+
+**Other useful Rust commands**:
+```bash
+just rust-coverage          # Generate coverage report
+just rust-coverage-open     # Open coverage in browser
+just rust-bench             # Run benchmarks
+just rust-watch             # Watch and auto-run tests
+just rust-doc               # Generate and open documentation
+just rust-proptest          # Run property-based tests
+just rust-snapshot-review   # Review insta snapshot changes
+```
+
+## Troubleshooting Development Issues
+
+### Build Failures
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| "Module not found" after `pnpm install` | lockfile and node_modules out of sync | `rm -rf node_modules && pnpm install` |
+| TypeScript errors in CI but not locally | Different TypeScript version or config | Run `pnpm tsc --build .` locally to match CI |
+| Rust build fails on macOS | Missing universal targets | `rustup target add x86_64-apple-darwin aarch64-apple-darwin` |
+| Tauri dev fails to start | Port already in use or stale process | Kill processes on port 1420/5173, or restart |
+
+### Test Failures
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| Rust tests flaky/fail intermittently | Parallel test execution with `env::set_var("HOME")` | Always use `--test-threads=1` with `cargo test` |
+| Frontend tests fail with "cannot find module" | Missing test setup or wrong import path | Check `vitest.config.ts` and import paths |
+| Snapshot tests fail | Expected output changed | Review with `cargo insta review` and accept if correct |
+
+### Development Issues
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| Hot reload not working | Vite/Tauri configuration issue | Restart dev server, check `tauri.conf.json` |
+| i18n keys missing or out of sync | Translation files not synchronized | Run `pnpm run i18n:sync` and `pnpm run i18n:validate` |
+| Dark mode colors incorrect | CSS variable not defined for dark mode | Check Tailwind config and ensure all colors have dark variants |
+| State not updating in UI | Forgot to trigger re-render or reading stale state | Use functional setState updates: `setState(prev => ...)` |
+
+### Platform-Specific Issues
+
+**Windows**:
+- `fs::rename` fails if target exists → Use `remove_file` before `rename`
+- Path separators: Use `PathBuf` and avoid hardcoded `/` or `\`
+
+**macOS**:
+- Need universal binary → Use `just tauri-build` which adds `--target universal-apple-darwin`
+- Gatekeeper warnings → Binary needs to be signed (happens in CI)
+
+**Linux**:
+- AppImage won't run → Check file permissions: `chmod +x *.AppImage`
+- Missing dependencies → Install libwebkit2gtk, libgtk-3, etc.
 
 ## Code Quality Checklist (PR #78 리뷰 기반)
 
