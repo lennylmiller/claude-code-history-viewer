@@ -71,20 +71,34 @@ Download the latest release for your platform:
 
 ## Build from Source
 
+### Option 1: Nix (Recommended)
+
+Reproducible development environment with all dependencies:
+
+```bash
+# Prerequisites: Nix + direnv
+# Install Nix: https://nixos.org/download.html
+# Install direnv: nix-env -i direnv
+
+git clone https://github.com/jhlee0409/claude-code-history-viewer.git
+cd claude-code-history-viewer
+direnv allow          # Auto-loads environment
+just setup            # Install dependencies
+just dev              # Start development server
+```
+
+### Option 2: Manual Setup
+
 ```bash
 git clone https://github.com/jhlee0409/claude-code-history-viewer.git
 cd claude-code-history-viewer
 
-# Option 1: Using just (recommended)
-brew install just    # or: cargo install just
-just setup
-just dev             # Development
-just tauri-build     # Production build
+# Install just: brew install just (macOS) or cargo install just
+# Install mise: curl https://mise.run | sh
 
-# Option 2: Using pnpm directly
-pnpm install
-pnpm tauri:dev       # Development
-pnpm tauri:build     # Production build
+just setup
+just dev              # Development
+just tauri-build      # Production build
 ```
 
 **Requirements**: Node.js 18+, pnpm, Rust toolchain

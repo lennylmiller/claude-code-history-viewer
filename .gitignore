@@ -65,6 +65,10 @@ debug.log*
 /.mise
 .omc/
 
+# direnv
+.direnv/
+
 # Auto-generated AI context files
 **/*/CLAUDE.md
 .serena/memories/
+.claude/

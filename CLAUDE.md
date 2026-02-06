@@ -86,6 +86,74 @@ cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings
 cd src-tauri && cargo fmt --all -- --check
 ```
 
+## Nix Development Environment
+
+This project supports Nix for reproducible development environments.
+
+### Prerequisites
+
+- Nix with flakes enabled: https://nixos.org/download.html
+- direnv: `nix-env -i direnv` or via your system package manager
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/jhlee0409/claude-code-history-viewer.git
+cd claude-code-history-viewer
+
+# Allow direnv to load the environment
+direnv allow
+
+# Environment auto-loads - all tools available!
+just setup
+just dev
+```
+
+### What's Provided
+
+The Nix environment includes:
+- Node.js 20
+- pnpm 10.13.1 (from packageManager field)
+- Rust stable (>= 1.77.2, includes rustc, cargo, rustfmt, clippy)
+- just command runner
+- All cargo development tools:
+  - cargo-nextest (faster tests)
+  - cargo-llvm-cov (coverage)
+  - cargo-watch (auto-run)
+  - cargo-audit (security)
+  - cargo-insta (snapshots)
+- Linux: gtk3, webkit2gtk, and other Tauri system dependencies
+- macOS: For universal binary builds, you may need to install Rust targets separately:
+  ```bash
+  rustup target add aarch64-apple-darwin x86_64-apple-darwin
+  ```
+
+### Commands
+
+All existing `just` commands work inside the Nix shell:
+
+```bash
+just setup          # Install dependencies
+just dev            # Development server
+just test           # Run tests
+just tauri-build    # Build production app
+```
+
+### Platform Support
+
+The flake supports:
+- macOS (Apple Silicon and Intel)
+- Linux (x86_64)
+
+### Fallback: mise
+
+If you prefer not to use Nix, the project still supports `mise` via `mise.toml`. Both approaches work.
+
+### Multi-system Support
+
+The flake.nix supports multiple platforms automatically. Clone on any supported system and `direnv allow` - it just works.
+
 ## Version Management
 
 This is a **Tauri desktop application** distributed via GitHub Releases (not npm).
