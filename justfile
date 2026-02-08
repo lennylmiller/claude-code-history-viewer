@@ -1,4 +1,4 @@
-set dotenv-load
+# set dotenv-load  # Disabled - cchv doesn't need environment variables
 set windows-powershell := true
 
 # Put pnpm and mise tools to PATH
